@@ -1,2 +1,2 @@
-ETL scripts for PDBBrowser appliclation demo
+ETL scripts for PDBBrowser application demo
 
