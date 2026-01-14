@@ -21,7 +21,7 @@ INPUT_DIR = os.path.abspath(args.input_dir)
 # Import ORM models
 from models.pdb_models import (
     Base, Author, Entry, CompType, ExpClasse, ExpType,
-    Sequence as PDBSequence, Source, author_entry_table
+    Sequence as PDBSequence, Source, author_entry_table, entry_source_table
 )
 
 # If requested, create database and tables, then exit
@@ -37,7 +37,7 @@ if args.build_db:
         conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{args.database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
         conn.commit()
         print(f"Database '{args.database}' created successfully.")
-    
+
     # Create engine and build schema
     engine = create_engine(
         f"mysql+pymysql://{user}:{passwd}@{args.host}/{args.database}?charset=utf8mb4",
@@ -194,6 +194,7 @@ except IOError as e:
 print("ok")
 
 # ------------------ expClasse and compType mappings ------------------
+print("Entry types...")
 expClasses = {}
 compTypes = {}
 try:
@@ -251,7 +252,13 @@ try:
             line = line.rstrip()
             if line and line[0] == '>':
                 if seq:
-                    s = PDBSequence(idCode=idPdb.upper(), chain=chain.replace(' ', ''), sequence=seq.replace("\n", ""), header=header)
+                    print("Adding sequence for", idPdb, "chain", chain)
+                    s = PDBSequence(
+                        idCode=idPdb.upper(),
+                        chain=chain.replace(' ', ''),
+                        sequence=seq.replace("\n", ""),
+                        header=header
+                    )
                     session.add(s)
                     seq = ''
                 groups = header_re.match(line)
@@ -262,7 +269,13 @@ try:
             else:
                 seq += line
         if seq:
-            s = PDBSequence(idCode=idPdb.upper(), chain=chain.replace(' ', ''), sequence=seq.replace("\n", ""), header=header)
+            print("Adding last sequence for", idPdb, "chain", chain)
+            s = PDBSequence(
+                idCode=idPdb.upper(),
+                chain=chain.replace(' ', ''),
+                sequence=seq.replace("\n", ""),
+                header=header
+            )
             session.add(s)
     session.commit()
 except IOError as e:

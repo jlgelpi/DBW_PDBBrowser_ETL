@@ -59,7 +59,7 @@ class ExpClasse(Base):
     idExpClasse = Column(Integer, primary_key=True, autoincrement=True)
     expClasse = Column(String(20))
 
-    expTypes = relationship('ExpType', back_populates='expClasses')                 
+    expTypes = relationship('ExpType', back_populates='expClasses')
 
     def __repr__(self):
         return f"<ExpClasse(idExpClasse={self.idExpClasse!r}, expClasse={self.expClasse!r})>"
@@ -102,9 +102,9 @@ class Sequence(Base):
     ''' Table representing sequences associated with PDB chain entries.'''
     __tablename__ = 'sequences'
     idCode = Column(String(4), ForeignKey('entries.idCode'), primary_key=True)
-    chain = Column(String(5), primary_key=True)
+    chain = Column(String(5, collation='utf8_bin'), primary_key=True) # force case sensitivity
     sequence = Column(Text)
-    header = Column(String(255))
+    header = Column(Text)
 
     entry = relationship('Entry', back_populates='sequences')
 
