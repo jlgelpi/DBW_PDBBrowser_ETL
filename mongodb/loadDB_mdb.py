@@ -18,9 +18,9 @@ args = parser.parse_args()
 INPUT_DIR = os.path.abspath(args.input_dir)
 
 # Import MongoDB models
-from mongodb.models.pdb_models import (
+from models.pdb_models import (
     Author, Entry, CompoundType, ExperimentalClass, ExperimentalType,
-    Sequence, Source, AuthorHasEntry, EntryHasSource
+    Sequence, Source
 )
 
 # Connect to MongoDB
@@ -40,8 +40,6 @@ if args.drop_db:
     ExperimentalClass.drop_collection()
     ExperimentalType.drop_collection()
     Source.drop_collection()
-    AuthorHasEntry.drop_collection()
-    EntryHasSource.drop_collection()
     print("All collections dropped.")
 
 # Create indexes
@@ -52,8 +50,6 @@ CompoundType.ensure_indexes()
 ExperimentalClass.ensure_indexes()
 ExperimentalType.ensure_indexes()
 Source.ensure_indexes()
-AuthorHasEntry.ensure_indexes()
-EntryHasSource.ensure_indexes()
 print("Indexes created.")
 
 # ------------------ Authors ------------------
@@ -134,7 +130,7 @@ try:
                 continue
             idCode, compTypeName, expClassName = parts[0], parts[1], parts[2]
             idCode = idCode.upper()
-            
+
             # Create ExperimentalClass if needed
             if expClassName not in expClasses:
                 try:
@@ -145,7 +141,7 @@ try:
                 except Exception as e:
                     print(f"Error saving exp class {expClassName}: {e}")
                     continue
-            
+
             # Create ExperimentalType if needed (will link to class)
             if expClassName not in ExpTypes and expClassName in expClasses:
                 try:
@@ -160,7 +156,7 @@ try:
                 except Exception as e:
                     print(f"Error saving exp type {expClassName}: {e}")
                     continue
-            
+
             if expClassName in expTypesbyCode:
                 expTypesbyCode[idCode] = expClassName
 except IOError as e:
@@ -182,7 +178,7 @@ try:
             if len(parts) < 2:
                 continue
             compTypeName = parts[1]
-            
+
             if compTypeName not in compTypes:
                 try:
                     ct = CompoundType(id_comp_type=comp_type_id, type=compTypeName)
@@ -208,12 +204,12 @@ try:
             fields = line.split("\t")
             if len(fields) < 8:
                 continue
-            
+
             idCode, header, ascDate, compound, source_field, authorList, resol, expTypeName = fields[:8]
-            
+
             if len(idCode) != 4:
                 continue
-            
+
             # Parse resolution
             if ',' in str(resol):
                 resol = resol.split(",")[0]
@@ -225,13 +221,13 @@ try:
                     resol_val = None
             else:
                 resol_val = None
-            
+
             compound = compound[:255] if compound else ""
-            
+
             # Get references
             exp_type_ref = ExpTypes.get(expTypeName)
             comp_type_ref = compTypes.get(expTypeName)
-            
+
             try:
                 entry = Entry(
                     id_code=idCode.upper(),
@@ -247,7 +243,7 @@ try:
             except Exception as e:
                 print(f"Error saving entry {idCode}: {e}")
                 continue
-    
+
     # Now update entries with compound types from pdb_entry_type.txt
     with open(os.path.join(INPUT_DIR, 'pdb_entry_type.txt'), 'r') as EXPCL:
         for line in EXPCL:
@@ -259,7 +255,7 @@ try:
                 continue
             idCode = parts[0].upper()
             compTypeName = parts[1]
-            
+
             try:
                 entry = Entry.objects(id_code=idCode).first()
                 if entry and compTypeName in compTypes:
@@ -268,7 +264,7 @@ try:
             except Exception as e:
                 print(f"Error updating entry {idCode} with compound type: {e}")
                 continue
-                
+
 except IOError as e:
     print(f"Error reading entries.idx: {str(e)}")
     sys.exit(1)
@@ -299,7 +295,7 @@ try:
                     except Exception as e:
                         print(f"Error adding sequence for {idPdb} chain {chain}: {e}")
                     seq = ''
-                
+
                 groups = header_re.match(line)
                 if groups:
                     idPdb = groups.group(1)
@@ -307,7 +303,7 @@ try:
                 header = line.replace('>', '')
             else:
                 seq += line
-        
+
         # Handle last sequence
         if seq and idPdb:
             try:
@@ -337,7 +333,7 @@ try:
                 if entry:
                     entry.add_source(source_obj)
                     entry.save()
-                    
+
                     # Also create AuthorHasEntry record
                     try:
                         record = EntryHasSource(
@@ -366,7 +362,7 @@ try:
                 if entry:
                     entry.add_author(author_obj)
                     entry.save()
-                    
+
                     # Also create AuthorHasEntry record
                     try:
                         record = AuthorHasEntry(
