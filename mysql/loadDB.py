@@ -6,17 +6,15 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # Database credentials
-database = "pdb"
-host = "localhost"
-#user = "dbw00"
-#passwd = "dbw2o26"
-user = "gelpi"
-passwd = "jl12gb"
+user = os.environ["SQL_USERNAME"]
+passwd = os.environ["SQL_PASSWORD"]
 
 # CLI args
 parser = argparse.ArgumentParser(description='Load PDB data into DB')
-parser.add_argument('-i', '--input-dir', default='.', help='Directory containing input files (default: current dir)')
-parser.add_argument('--build-db', action='store_true', help='Create database tables from models and exit')
+parser.add_argument('-i', '--input_dir', default='.', help='Directory containing input files (default: current dir)')
+parser.add_argument('--build_db', action='store_true', help='Create database tables from models and exit')
+parser.add_argument('--database', action='store', help='Database name to connect to', default='pdb')
+parser.add_argument('--host', action='store', help='Database host', default='localhost')
 args = parser.parse_args()
 INPUT_DIR = os.path.abspath(args.input_dir)
 
@@ -26,20 +24,37 @@ from models.pdb_models import (
     Sequence as PDBSequence, Source, author_entry_table
 )
 
-# Create engine and session
-engine = create_engine(
-    f"mysql+pymysql://{user}:{passwd}@{host}/{database}?charset=utf8mb4",
-    echo=False,
-)
-Session = sessionmaker(bind=engine)
-session = Session()
-
-# If requested, create database tables from models and exit before doing any data operations
+# If requested, create database and tables, then exit
 if args.build_db:
+    print(f"Creating database '{args.database}'...")
+    # Connect to MySQL server without specifying a database
+    admin_engine = create_engine(
+        f"mysql+pymysql://{user}:{passwd}@{args.host}?charset=utf8mb4",
+        echo=False,
+    )
+    with admin_engine.connect() as conn:
+        # Create database if it doesn't exist
+        conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{args.database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+        conn.commit()
+        print(f"Database '{args.database}' created successfully.")
+    
+    # Create engine and build schema
+    engine = create_engine(
+        f"mysql+pymysql://{user}:{passwd}@{args.host}/{args.database}?charset=utf8mb4",
+        echo=False,
+    )
     print("Building database schema from models...")
     Base.metadata.create_all(engine)
     print("Database schema created.")
     sys.exit(0)
+
+# Create engine and session for normal operation
+engine = create_engine(
+    f"mysql+pymysql://{user}:{passwd}@{args.host}/{args.database}?charset=utf8mb4",
+    echo=False,
+)
+Session = sessionmaker(bind=engine)
+session = Session()
 
 # Turn off FKs (raw SQL for MySQL)
 session.execute(text("SET FOREIGN_KEY_CHECKS=0"))
@@ -51,21 +66,21 @@ session.execute(author_entry_table.delete())
 # entry_has_source
 session.execute(text("DELETE FROM entry_has_source"))
 # sequence
-session.execute(text("DELETE FROM `sequence`"))
+session.execute(text("DELETE FROM `sequences`"))
 # entry
-session.execute(text("DELETE FROM entry"))
-# source
-session.execute(text("DELETE FROM source"))
-# author
-session.execute(text("DELETE FROM author"))
-# expType, comptype, expClasse
-session.execute(text("DELETE FROM expType"))
-session.execute(text("DELETE FROM comptype"))
-session.execute(text("DELETE FROM expClasse"))
+session.execute(text("DELETE FROM entries"))
+# sources
+session.execute(text("DELETE FROM sources"))
+# authors
+session.execute(text("DELETE FROM authors"))
+# expTypes, compTypes, expClasses
+session.execute(text("DELETE FROM expTypes"))
+session.execute(text("DELETE FROM compTypes"))
+session.execute(text("DELETE FROM expClasses"))
 session.commit()
 
 # Reset AUTO_INCREMENT where applicable
-for tbl in ('source','author','expType','comptype','expClasse'):
+for tbl in ('sources','authors','expTypes','compTypes','expClasses'):
     try:
         session.execute(text(f"ALTER TABLE {tbl} AUTO_INCREMENT=1"))
     except Exception:
@@ -94,6 +109,7 @@ try:
                 if key not in author_entry_seen:
                     author_entries.append((author_name, idCode))
                     author_entry_seen.add(key)
+    print(f"Total unique authors: {len(AUTHORS)}")
     session.commit()
 except IOError as e:
     print(f"Error reading author.idx: {str(e)}")
@@ -121,6 +137,7 @@ try:
                     session.flush()
                     SOURCES[s] = so
                 source_entries.append((idCode, s))
+    print(f"Total unique sources: {len(SOURCES)}")
     session.commit()
 except IOError as e:
     print(f"Error reading source.idx: {str(e)}")
@@ -162,12 +179,13 @@ try:
             else:
                 et = ExpTypes[expTypeName]
 
-            entry = Entry(idCode=idCode, header=header, ascessionDate=ascDate, compound=compound, resolution=resol_val)
+            entry = Entry(idCode=idCode, header=header, accessionDate=ascDate, compound=compound, resolution=resol_val)
             # link expType by id (set relationship)
-            entry.expType = et
+            entry.expTypes = et
             session.add(entry)
             session.flush()
             expTypesbyCode[idCode] = expTypeName
+    print(f"Total entries: {len(expTypesbyCode)}")
     session.commit()
 except IOError as e:
     print(f"Error reading entries.idx: {str(e)}")
@@ -208,11 +226,11 @@ try:
             if expTypeName:
                 et = ExpTypes.get(expTypeName)
                 if et:
-                    et.expClasse = ec
-            # update entry.comptype
+                    et.expClasses = ec
+            # update entry.compTypes
             entry = session.get(Entry, idCode)
             if entry:
-                entry.comptype = ct
+                entry.compTypes = ct
     session.commit()
 except IOError as e:
     print(f"Error reading pdb_entry_type.txt: {str(e)}")

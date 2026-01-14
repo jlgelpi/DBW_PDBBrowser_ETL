@@ -20,19 +20,20 @@ Base = declarative_base()
 # association table for many-to-many Author <-> Entry
 author_entry_table = Table(
     'author_has_entry', Base.metadata,
-    Column('idAuthor', Integer, ForeignKey('author.idAuthor'), primary_key=True),
-    Column('idCode', String(4), ForeignKey('entry.idCode'), primary_key=True),
+    Column('idAuthor', Integer, ForeignKey('authors.idAuthor'), primary_key=True),
+    Column('idCode', String(4), ForeignKey('entries.idCode'), primary_key=True),
 )
 
 # association table for many-to-many Entry <-> Source (was entry_has_source)
 entry_source_table = Table(
     'entry_has_source', Base.metadata,
-    Column('idCode', String(4), ForeignKey('entry.idCode'), primary_key=True),
-    Column('idSource', Integer, ForeignKey('source.idSource'), primary_key=True),
+    Column('idCode', String(4), ForeignKey('entries.idCode'), primary_key=True),
+    Column('idSource', Integer, ForeignKey('sources.idSource'), primary_key=True),
 )
 
 class Author(Base):
-    __tablename__ = 'author'
+    ''' Author model representing the 'authors' table.'''
+    __tablename__ = 'authors'
     idAuthor = Column(Integer, primary_key=True, autoincrement=True)
     author = Column(String(255))
 
@@ -42,50 +43,54 @@ class Author(Base):
         return f"<Author(idAuthor={self.idAuthor!r}, author={self.author!r})>"
 
 class CompType(Base):
-    __tablename__ = 'comptype'
+    ''' CompType model representing the 'compTypes' table. Types of compounds (prot, nuc, ...) '''
+    __tablename__ = 'compTypes'
     idCompType = Column(Integer, primary_key=True, autoincrement=True)
     type = Column(String(10))
 
-    entries = relationship('Entry', back_populates='comptype')
+    entries = relationship('Entry', back_populates='compTypes')
 
     def __repr__(self):
-        return f"<CompType(idCompType={self.idCompType!r}, type={self.type!r})>"
+        return f"<CompType (idCompType={self.idCompType!r}, type={self.type!r})>"
 
 class ExpClasse(Base):
-    __tablename__ = 'expClasse'
+    ''' ExpClasse model representing the 'expClasses' table. Experimental classes (X-ray, NMR, ...) '''
+    __tablename__ = 'expClasses'
     idExpClasse = Column(Integer, primary_key=True, autoincrement=True)
     expClasse = Column(String(20))
 
-    expTypes = relationship('ExpType', back_populates='expClasse')
+    expTypes = relationship('ExpType', back_populates='expClasses')                 
 
     def __repr__(self):
         return f"<ExpClasse(idExpClasse={self.idExpClasse!r}, expClasse={self.expClasse!r})>"
 
 class ExpType(Base):
-    __tablename__ = 'expType'
+    ''' ExpType model representing the 'expTypes' table. Verbose Experimental types (X-ray diffraction, solution NMR, ...) '''
+    __tablename__ = 'expTypes'
     idExpType = Column(Integer, primary_key=True, autoincrement=True)
-    idExpClasse = Column(Integer, ForeignKey('expClasse.idExpClasse'))
+    idExpClasse = Column(Integer, ForeignKey('expClasses.idExpClasse'))
     ExpType = Column(String(255))
 
-    expClasse = relationship('ExpClasse', back_populates='expTypes')
-    entries = relationship('Entry', back_populates='expType')
+    expClasses = relationship('ExpClasse', back_populates='expTypes')
+    entries = relationship('Entry', back_populates='expTypes')
 
     def __repr__(self):
         return f"<ExpType(idExpType={self.idExpType!r}, ExpType={self.ExpType!r})>"
 
 class Entry(Base):
-    __tablename__ = 'entry'
+    ''' Main table representing PDB entries.'''
+    __tablename__ = 'entries'
     idCode = Column(String(4), primary_key=True)
-    idExpType = Column(Integer, ForeignKey('expType.idExpType'))
-    idCompType = Column(Integer, ForeignKey('comptype.idCompType'))
+    idExpType = Column(Integer, ForeignKey('expTypes.idExpType'))
+    idCompType = Column(Integer, ForeignKey('compTypes.idCompType'))
     header = Column(String(255))
-    ascessionDate = Column(String(20))
+    accessionDate = Column(String(20))
     compound = Column(String(255))
     resolution = Column(Float)
 
     authors = relationship('Author', secondary=author_entry_table, back_populates='entries')
-    comptype = relationship('CompType', back_populates='entries')
-    expType = relationship('ExpType', back_populates='entries')
+    compTypes = relationship('CompType', back_populates='entries')
+    expTypes = relationship('ExpType', back_populates='entries')
     sequences = relationship('Sequence', back_populates='entry', cascade='all, delete-orphan')
     # many-to-many to Source via association table
     sources = relationship('Source', secondary=entry_source_table, back_populates='entries')
@@ -94,11 +99,12 @@ class Entry(Base):
         return f"<Entry(idCode={self.idCode!r}, header={self.header!r})>"
 
 class Sequence(Base):
-    __tablename__ = 'sequence'
-    idCode = Column(String(4), ForeignKey('entry.idCode'), primary_key=True)
+    ''' Table representing sequences associated with PDB chain entries.'''
+    __tablename__ = 'sequences'
+    idCode = Column(String(4), ForeignKey('entries.idCode'), primary_key=True)
     chain = Column(String(5), primary_key=True)
     sequence = Column(Text)
-    header = Column(Text)
+    header = Column(String(255))
 
     entry = relationship('Entry', back_populates='sequences')
 
@@ -106,7 +112,8 @@ class Sequence(Base):
         return f"<Sequence(idCode={self.idCode!r}, chain={self.chain!r})>"
 
 class Source(Base):
-    __tablename__ = 'source'
+    ''' Table representing sources associated with PDB entries.'''
+    __tablename__ = 'sources'
     idSource = Column(Integer, primary_key=True, autoincrement=True)
     source = Column(String(255))
 
