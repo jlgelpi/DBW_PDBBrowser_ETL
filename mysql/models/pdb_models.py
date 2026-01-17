@@ -89,11 +89,11 @@ class Entry(Base):
     resolution = Column(Float)
 
     authors = relationship('Author', secondary=author_entry_table, back_populates='entries')
+    sources = relationship('Source', secondary=entry_source_table, back_populates='entries')
+
     compTypes = relationship('CompType', back_populates='entries')
     expTypes = relationship('ExpType', back_populates='entries')
     sequences = relationship('Sequence', back_populates='entry', cascade='all, delete-orphan')
-    # many-to-many to Source via association table
-    sources = relationship('Source', secondary=entry_source_table, back_populates='entries')
 
     def __repr__(self):
         return f"<Entry(idCode={self.idCode!r}, header={self.header!r})>"
