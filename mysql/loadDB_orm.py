@@ -4,10 +4,15 @@ import os
 import argparse
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+# Import ORM models
+from models.pdb_models import (
+    Base, Author, Entry, CompType, ExpClasse, ExpType,
+    Sequence as PDBSequence, Source, author_entry_table, entry_source_table
+)
 
 # Database credentials
-user = os.environ["SQL_USERNAME"]
-passwd = os.environ["SQL_PASSWORD"]
+if 'SQL_USERNAME' not in os.environ or 'SQL_PASSWORD' not in os.environ:
+    sys.exit("Environment variables SQL_USERNAME and SQL_PASSWORD must be set")
 
 # CLI args
 parser = argparse.ArgumentParser(description='Load PDB data into DB')
@@ -18,18 +23,12 @@ parser.add_argument('--host', action='store', help='Database host', default='loc
 args = parser.parse_args()
 INPUT_DIR = os.path.abspath(args.input_dir)
 
-# Import ORM models
-from models.pdb_models import (
-    Base, Author, Entry, CompType, ExpClasse, ExpType,
-    Sequence as PDBSequence, Source, author_entry_table, entry_source_table
-)
-
 # If requested, create database and tables, then exit
 if args.build_db:
     print(f"Creating database '{args.database}'...")
     # Connect to MySQL server without specifying a database
     admin_engine = create_engine(
-        f"mysql+pymysql://{user}:{passwd}@{args.host}?charset=utf8mb4",
+        f"mysql+pymysql://{os.environ['SQL_USERNAME']}:{os.environ['SQL_PASSWORD']}@{args.host}?charset=utf8mb4",
         echo=False,
     )
     with admin_engine.connect() as conn:
@@ -40,7 +39,7 @@ if args.build_db:
 
     # Create engine and build schema
     engine = create_engine(
-        f"mysql+pymysql://{user}:{passwd}@{args.host}/{args.database}?charset=utf8mb4",
+        f"mysql+pymysql://{os.environ['SQL_USERNAME']}:{os.environ['SQL_PASSWORD']}@{args.host}/{args.database}?charset=utf8mb4",
         echo=False,
     )
     print("Building database schema from models...")
@@ -64,9 +63,9 @@ print("Cleaning tables...")
 # association table
 session.execute(author_entry_table.delete())
 # entry_has_source
-session.execute(text("DELETE FROM entry_has_source"))
+session.execute(entry_source_table.delete())
 # sequence
-session.execute(text("DELETE FROM `sequences`"))
+session.execute(text("DELETE FROM sequences"))
 # entry
 session.execute(text("DELETE FROM entries"))
 # sources

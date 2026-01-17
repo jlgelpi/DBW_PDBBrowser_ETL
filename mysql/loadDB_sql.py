@@ -13,6 +13,9 @@ parser.add_argument('--host', type=str, default='localhost', help='MySQL host (d
 parser.add_argument('--database', type=str, default='pdb', help='MySQL database name (default: pdb)')   
 args = parser.parse_args()
 
+if 'SQL_USERNAME' not in os.environ or 'SQL_PASSWORD' not in os.environ:
+    sys.exit("Environment variables SQL_USERNAME and SQL_PASSWORD must be set")
+    
 # Establish MySQL connection
 connection = pymysql.connect(
     host=args.host,
