@@ -17,6 +17,7 @@ class Author(Document):
     """
     id_author = IntField(primary_key=True, required=True)
     author = StringField(max_length=255)
+    entries = ListField(ReferenceField('Entry'))   
 
     meta = {
         'collection': 'authors',
@@ -24,6 +25,15 @@ class Author(Document):
             {'fields': ['$author']},  # Full-text index for searching
         ]
     }
+
+    def add_entry(self, entry):
+        """Add an entry reference to this author.
+
+        Args:
+            entry: Entry document reference
+        """
+        if entry not in self.entries:
+            self.entries.append(entry)
 
     def __repr__(self):
         return f"<Author(id={self.id_author}, name={self.author})>"
@@ -39,12 +49,11 @@ class ExperimentalClass(Document):
     exp_classe = StringField(max_length=20)
 
     meta = {
-        'collection': 'exp_classes',
+        'collection': 'expClasses',
     }
 
     def __repr__(self):
         return f"<ExperimentalClass(id={self.id_exp_classe}, classe={self.exp_classe})>"
-
 
 class CompoundType(Document):
     """Compound type document.
@@ -53,14 +62,14 @@ class CompoundType(Document):
     Defines types of compounds (e.g., PROTEIN, DNA, RNA, etc).
     """
     id_comp_type = IntField(primary_key=True, required=True)
-    type = StringField(max_length=10)
+    comp_type = StringField(max_length=10)
 
     meta = {
-        'collection': 'compound_types',
+        'collection': 'compTypes',
     }
 
     def __repr__(self):
-        return f"<CompoundType(id={self.id_comp_type}, type={self.type})>"
+        return f"<CompoundType(id={self.id_comp_type}, type={self.comp_type})>"
 
 
 class ExperimentalType(Document):
@@ -70,15 +79,23 @@ class ExperimentalType(Document):
     Stores detailed experimental method types with reference to experimental class.
     """
     id_exp_type = IntField(primary_key=True, required=True)
-    id_exp_classe = ReferenceField(ExperimentalClass, field_name='id_exp_classe')
-    exp_type = StringField(max_length=255)
+    id_exp_classe = ReferenceField(ExperimentalClass, field_name='idExpCclasse')
+    expType = StringField(max_length=255)
 
     meta = {
-        'collection': 'exp_types',
+        'collection': 'expTypes',
         'indexes': [
             'id_exp_classe',
         ]
     }
+
+    def add_exp_class(self, exp_class):
+        """Set the experimental class reference.
+
+        Args:
+            exp_class: ExperimentalClass document reference
+        """
+        self.id_exp_classe = exp_class
 
     def __repr__(self):
         return f"<ExperimentalType(id={self.id_exp_type}, type={self.exp_type})>"
@@ -92,6 +109,7 @@ class Source(Document):
     """
     id_source = IntField(primary_key=True, required=True)
     source = StringField(max_length=255)
+    entries = ListField(ReferenceField('Entry'))
 
     meta = {
         'collection': 'sources',
@@ -99,6 +117,15 @@ class Source(Document):
             {'fields': ['$source'], 'default_language': 'none'},  # Full-text index for searching
         ]
     }
+
+    def add_entry(self, entry):
+        """Add an entry reference to this source.
+
+        Args:
+            entry: Entry document reference
+        """
+        if entry not in self.entries:
+            self.entries.append(entry.id_code)
 
     def __repr__(self):
         return f"<Source(id={self.id_source}, source={self.source})>"
@@ -108,13 +135,21 @@ class Sequence(EmbeddedDocument):
     """Embedded document for protein/nucleic acid sequences.
 
     Stores sequence information for a specific chain in an entry.
+    Compound primary key: (idCode, chain)
     """
+    idCode = StringField(max_length=4, required=True)
     chain = StringField(max_length=5, required=True)
     sequence = StringField()
     header = StringField()
 
+    meta = {
+        'indexes': [
+            {'fields': ['idCode', 'chain'], 'unique': True}  # Compound primary key
+        ]
+    }
+
     def __repr__(self):
-        return f"<Sequence(chain={self.chain})>"
+        return f"<Sequence(idCode={self.idCode!r}, chain={self.chain!r})>"
 
 
 class Entry(Document):
@@ -124,14 +159,12 @@ class Entry(Document):
     Contains structural biology data with references to related collections.
     """
     id_code = StringField(max_length=4, primary_key=True, required=True)
-    id_exp_type = ReferenceField(
+    id_exp_type = ReferenceDocument(
         ExperimentalType,
-        field_name='id_exp_type',
         null=True
     )
-    id_comp_type = ReferenceField(
+    id_comp_type = ReferenceDocument(
         CompoundType,
-        field_name='id_comp_type',
         null=True
     )
     header = StringField(max_length=255)
@@ -139,8 +172,8 @@ class Entry(Document):
     compound = StringField(max_length=255)
     resolution = FloatField(null=True)
     sequences = EmbeddedDocumentListField(Sequence)
-    authors = ListField(ReferenceField(Author))
-    sources = ListField(ReferenceField(Source))
+    authors = EmbeddedDocumentListField(Author)
+    sources = EmbeddedDocumentListField(Source)
 
     meta = {
         'collection': 'entries',
@@ -148,7 +181,10 @@ class Entry(Document):
             'id_exp_type',
             'id_comp_type',
             'resolution',
-            {'fields': ['$compound', '$header'], 'default_language': 'none'},  # Full-text index for compound and header search
+            {
+                'fields': ['$compound', '$header', '$sequences.header','$authors.author', '$sources.source'], 
+                'default_language': 'none'
+            },  # Full-text index for compound and header search
         ]
     }
 
