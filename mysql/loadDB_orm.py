@@ -2,7 +2,7 @@ import re
 import sys
 import os
 import argparse
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, Index
 from sqlalchemy.orm import sessionmaker
 # Import ORM models
 from models.pdb_models import (
@@ -29,7 +29,7 @@ if args.build_db:
     # Connect to MySQL server without specifying a database
     admin_engine = create_engine(
         f"mysql+pymysql://{os.environ['SQL_USERNAME']}:{os.environ['SQL_PASSWORD']}@{args.host}?charset=utf8mb4",
-        echo=False,
+        echo=True,
     )
     with admin_engine.connect() as conn:
         # Create database if it doesn't exist
@@ -49,7 +49,7 @@ if args.build_db:
 
 # Create engine and session for normal operation
 engine = create_engine(
-    f"mysql+pymysql://{user}:{passwd}@{args.host}/{args.database}?charset=utf8mb4",
+    f"mysql+pymysql://{os.environ['SQL_USERNAME']}:{os.environ['SQL_PASSWORD']}@{args.host}/{args.database}?charset=utf8mb4",
     echo=False,
 )
 Session = sessionmaker(bind=engine)
@@ -120,6 +120,7 @@ print("ok")
 print("Sources...")
 SOURCES = {}  # source string -> Source instance
 source_entries = []  # (idCode, source_string)
+source_entries_seen = set()  # track (idCode, source_string) to avoid duplicates
 try:
     with open(os.path.join(INPUT_DIR, "source.idx"), 'r') as SOUR:
         for line in SOUR:
@@ -135,7 +136,10 @@ try:
                     session.add(so)
                     session.flush()
                     SOURCES[s] = so
-                source_entries.append((idCode, s))
+                key = (idCode, s)
+                if key not in source_entries_seen:
+                    source_entries.append((idCode, s))
+                    source_entries_seen.add(key)
     print(f"Total unique sources: {len(SOURCES)}")
     session.commit()
 except IOError as e:
@@ -178,7 +182,13 @@ try:
             else:
                 et = ExpTypes[expTypeName]
 
-            entry = Entry(idCode=idCode, header=header, accessionDate=ascDate, compound=compound, resolution=resol_val)
+            entry = Entry(
+                idCode=idCode, 
+                header=header, 
+                accessionDate=ascDate, 
+                compound=compound, 
+                resolution=resol_val
+            )
             # link expType by id (set relationship)
             entry.expTypes = et
             session.add(entry)
@@ -193,7 +203,7 @@ except IOError as e:
 print("ok")
 
 # ------------------ expClasse and compType mappings ------------------
-print("Entry types...")
+print("Entry exp and comp types...")
 expClasses = {}
 compTypes = {}
 try:
@@ -239,9 +249,8 @@ except IOError as e:
 
 # ------------------ Sequences ------------------
 print("Sequences...")
-sequence_data = []
 header_re = re.compile(r'^>([^_]*)_(.*)mol:(\S*) length:(\S*)')
-try:
+try:    
     with open(os.path.join(INPUT_DIR, "pdb_seqres.txt"), 'r') as SEQS:
         seq = ''
         idPdb = ''
@@ -251,7 +260,6 @@ try:
             line = line.rstrip()
             if line and line[0] == '>':
                 if seq:
-                    print("Adding sequence for", idPdb, "chain", chain)
                     s = PDBSequence(
                         idCode=idPdb.upper(),
                         chain=chain.replace(' ', ''),
@@ -268,7 +276,6 @@ try:
             else:
                 seq += line
         if seq:
-            print("Adding last sequence for", idPdb, "chain", chain)
             s = PDBSequence(
                 idCode=idPdb.upper(),
                 chain=chain.replace(' ', ''),
@@ -290,9 +297,8 @@ try:
         source_obj = SOURCES.get(s)
         entry_obj = session.get(Entry, idCode)
         if source_obj and entry_obj:
-            # use many-to-many relationship; avoid duplicates
-            if source_obj not in entry_obj.sources:
-                entry_obj.sources.append(source_obj)
+            # use many-to-many relationship; SQLAlchemy will insert into association table
+            entry_obj.sources.append(source_obj)
     session.commit()
 except Exception as e:
     print(f"Error linking sources: {e}")

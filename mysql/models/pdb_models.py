@@ -10,7 +10,7 @@ Usage example:
     Base.metadata.create_all(engine)
 """
 from sqlalchemy import (
-    Column, Integer, String, Float, Text, ForeignKey, Table
+    Column, Integer, String, Float, Text, ForeignKey, Table, Index
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -38,9 +38,12 @@ class Author(Base):
     author = Column(String(255))
 
     entries = relationship('Entry', secondary=author_entry_table, back_populates='authors')
+    __table_args__ = (
+        Index('idx_author_ft', 'author', mysql_using='FULLTEXT'),
+    )
 
     def __repr__(self):
-        return f"<Author(idAuthor={self.idAuthor!r}, author={self.author!r})>"
+        return f"<Author(idAuthor={self.idAuthor!r}, author={self.author!r})"
 
 class CompType(Base):
     ''' CompType model representing the 'compTypes' table. Types of compounds (prot, nuc, ...) '''
@@ -94,9 +97,13 @@ class Entry(Base):
     compTypes = relationship('CompType', back_populates='entries')
     expTypes = relationship('ExpType', back_populates='entries')
     sequences = relationship('Sequence', back_populates='entry', cascade='all, delete-orphan')
+    __table_args__ = (
+        Index('idx_entry_header_ft', 'header', mysql_using='FULLTEXT'),
+        Index('idx_entry_compound_ft', 'compound', mysql_using='FULLTEXT'),
+    )
 
     def __repr__(self):
-        return f"<Entry(idCode={self.idCode!r}, header={self.header!r})>"
+        return f"<Entry(idCode={self.idCode!r}, header={self.header!r})"
 
 class Sequence(Base):
     ''' Table representing sequences associated with PDB chain entries.'''
@@ -107,9 +114,12 @@ class Sequence(Base):
     header = Column(Text)
 
     entry = relationship('Entry', back_populates='sequences')
+    __table_args__ = (
+        Index('idx_sequence_header_ft', 'header', mysql_using='FULLTEXT'),
+    )
 
     def __repr__(self):
-        return f"<Sequence(idCode={self.idCode!r}, chain={self.chain!r})>"
+        return f"<Sequence(idCode={self.idCode!r}, chain={self.chain!r})"
 
 class Source(Base):
     ''' Table representing sources associated with PDB entries.'''
@@ -119,6 +129,10 @@ class Source(Base):
 
     # many-to-many to Entry via association table
     entries = relationship('Entry', secondary=entry_source_table, back_populates='sources')
+    __table_args__ = (
+        Index('idx_source_ft', 'source', mysql_using='FULLTEXT'),
+    )
 
     def __repr__(self):
-        return f"<Source(idSource={self.idSource!r}, source={self.source!r})>"
+        return f"<Source(idSource={self.idSource!r}, source={self.source!r})"
+
