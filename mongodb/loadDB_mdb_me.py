@@ -71,8 +71,8 @@ except Exception as e:
 # ------------------ Authors ------------------
 print("Loading Authors...")
 AUTHORS = {}  # name -> Author instance
-author_entries = []  # (author_name, idCode)
-author_entry_seen = set()  # track (author_name, idCode) to avoid duplicates
+author_entries = []  # (author_name, id_code)
+author_entry_seen = set()  # track (author_name, id_code) to avoid duplicates
 try:
     author_id = 1
     with open(os.path.join(INPUT_DIR, "author.idx"), 'r') as AUTS:
@@ -92,7 +92,7 @@ try:
                 except Exception as e:
                     print(f"Error saving author '{author_name}': {e}")
                     continue
-            key = (author_name, idCode)
+            key = (author_name, id_code)
             if key not in author_entry_seen:
                 author_entries.append((author_name, idCode))
                 author_entry_seen.add(key)
@@ -104,7 +104,7 @@ print(f"Loaded {len(AUTHORS)} authors. {len(author_entries)} author-entry associ
 # ------------------ Sources ------------------
 print("Loading Sources...")
 SOURCES = {}  # source string -> Source instance
-source_entries = []  # (idCode, source_string)
+source_entries = []  # (id_code, source_string)
 source_entries_seen = set()
 try:
     source_id = 1
@@ -114,7 +114,7 @@ try:
             if ' ' not in line:
                 continue
             idCode, source_str = line.split(maxsplit=1)
-            if not source_str or len(idCode) != 4:
+            if not source_str or len(id_code) != 4:
                 continue
             for s in source_str.split('; '):
                 if s not in SOURCES:
@@ -139,7 +139,7 @@ print(f"Loaded {len(SOURCES)} sources. {len(source_entries)} source-entry associ
 print("Loading Experimental Classes and Compound Types...")
 expClasses = {}  # name -> ExperimentalClass instance
 compTypes = {}  # name -> CompoundType instance
-expMetabyCode = {}  # idCode -> (expClassName, compTypeName)
+expMetabyCode = {}  # id_code -> (expClassName, compTypeName)
 try:
     exp_classe_id = 1
     comp_type_id = 1
@@ -319,7 +319,7 @@ try:
                     entry.save()
                     sources_linked += 1
             except Exception as e:
-                print(f"Error linking source '{source_name}' to entry {idCode}: {e}")
+                print(f"Error linking source '{source_name}' to entry {id_code}: {e}")
                 continue
 except Exception as e:
     print(f"Error linking sources: {e}")
@@ -330,11 +330,11 @@ print(f"Linked {sources_linked} source-entry associations.")
 print("Linking authors to entries...")
 authors_linked = 0
 try:
-    for author_name, idCode in author_entries:
+    for author_name, id_code in author_entries:
         author_obj = AUTHORS.get(author_name)
         if author_obj:
             try:
-                entry = Entry.objects(id_code=idCode.upper()).first()
+                entry = Entry.objects(id_code=id_code.upper()).first()
                 if entry:
                     author_obj.entries.append(entry)
                     author_obj.save()

@@ -135,21 +135,21 @@ class Sequence(EmbeddedDocument):
     """Embedded document for protein/nucleic acid sequences.
 
     Stores sequence information for a specific chain in an entry.
-    Compound primary key: (idCode, chain)
+    Compound primary key: (id_code, chain)
     """
-    idCode = StringField(max_length=4, required=True)
+    id_code = StringField(max_length=4, required=True)
     chain = StringField(max_length=5, required=True)
     sequence = StringField()
     header = StringField()
 
     meta = {
         'indexes': [
-            {'fields': ['idCode', 'chain'], 'unique': True}  # Compound primary key
+            {'fields': ['id_code', 'chain'], 'unique': True}  # Compound primary key
         ]
     }
 
     def __repr__(self):
-        return f"<Sequence(idCode={self.idCode!r}, chain={self.chain!r})>"
+        return f"<Sequence(id_code={self.id_code!r}, chain={self.chain!r})>"
 
 
 class Entry(Document):
