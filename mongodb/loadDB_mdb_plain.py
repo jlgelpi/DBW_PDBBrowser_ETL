@@ -223,7 +223,7 @@ try:
                     try:
                         entries_collection.update_one(
                             {"_id": id_code .upper()},
-                            {"$addToSet": {
+                            {"$push": {
                                 "sequences": {
                                     "chain": chain.replace(' ', ''),
                                     "sequence": seq.replace("\n", ""),
@@ -245,21 +245,21 @@ try:
                 seq += line
 
         # Handle last sequence
-            if seq and id_code:
-                try:
-                    entries_collection.update_one(
-                        {"_id": id_code.upper()},
-                        {"$push": {
-                            "sequences": {
-                                "chain": chain.replace(' ', ''),
-                                "sequence": seq.replace("\n", ""),
-                                "header": header
-                            }
-                        }}
-                    )
-                    sequences_added += 1
-                except Exception as e:
-                    print(f"Error adding sequence for {id_code} chain {chain}: {e}")
+        if seq and id_code:
+            try:
+                entries_collection.update_one(
+                    {"_id": id_code.upper()},
+                    {"$push": {
+                        "sequences": {
+                            "chain": chain.replace(' ', ''),
+                            "sequence": seq.replace("\n", ""),
+                            "header": header
+                        }
+                    }}
+                )
+                sequences_added += 1
+            except Exception as e:
+                print(f"Error adding sequence for {id_code} chain {chain}: {e}")
         
 except IOError as e:
     print(f"Error reading pdb_seqres.txt: {str(e)}")
