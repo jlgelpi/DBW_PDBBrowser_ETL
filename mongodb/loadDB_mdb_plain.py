@@ -60,15 +60,19 @@ if args.drop_db:
     comp_types_collection.drop()
     sources_collection.drop()
     # Recreate indexes if needed
-    entries_collection.create_index("header")   
-    entries_collection.create_index("compound")
     entries_collection.create_index("resolution")
     entries_collection.create_index("experiment_type")
     entries_collection.create_index("experimental_class")
     entries_collection.create_index("compound_type")
-    entries_collection.create_index("authors")  
-    entries_collection.create_index("sequences.header")
     entries_collection.create_index("sources")
+    entries_collection.create_index([
+        ("compound", "text"), 
+        ("header", "text"), 
+        ("sequences.header", "text"), 
+        ("authors", "text"), 
+        ("sources", "text")
+        ], default_language='none'
+    )
 try:
     with open(os.path.join(INPUT_DIR, "entries.idx"), 'r') as ENTR:
         for line in ENTR:
